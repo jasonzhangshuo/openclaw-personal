@@ -11,6 +11,18 @@
 - **冒烟验证通过**：执行 `./scripts/oc config validate --json` 返回 `valid: true`；执行 `./scripts/oc gateway restart` 与 `./scripts/oc gateway status`，`Runtime: running`、`RPC probe: ok`；执行 `./scripts/oc agents bindings` 已看到各群同时存在 `accountId=main/default` 两套路由。
 - **反思群恢复自动接单**：将反思群 `oc_e5eb757efecfb1367305c64610eb5068` 的 `channels.feishu.groups` 配置从 `requireMention: true` 改为 `{}`（不强制 @），避免纪要消息或普通消息被记录但不派发。
 - **冒烟验证通过**：执行 `./scripts/oc config validate --json` 返回 `valid: true`；执行 `./scripts/oc gateway restart` 与 `./scripts/oc gateway status`，`Runtime: running`、`RPC probe: ok`。
+- **22:14 Docker 测试群切换并打通**：将 Docker 灰度测试群从 `oc_96c7deac01aeb6c8868ba89b73ec012e` 切换为 `oc_5e2c2436f0a15c2927273d84350b2eb7`，同时补齐 `bindings` 的 `accountId=main/default` 双路由。
+- **22:14 Feishu 链路排障完成**：排查到「主动发群可达但入站偶发不回」主要由 Feishu WS 连接重连期导致；重启容器并确认 `ws client ready` 后，日志出现 `received message -> dispatching to agent`，测试群已恢复稳定回复。
+- **22:14 提及策略收敛**：将 `channels.feishu.requireMention` 恢复为 `true`，并把需要免 @ 的群改为显式 `requireMention: false`（含新测试群与既有免 @ 群），避免依赖 `{}` 的隐式行为。
+- **22:25 Feishu 通道单连接稳定化**：将 `channels.feishu.accounts.main.enabled` 设为 `false`，仅保留 `default` 账号长连接收发，避免同一 App 双连接在 `main/default` 间切换导致间歇不稳定。
+- **22:25 冒烟验证通过**：测试群 `oc_5e2c2436f0a15c2927273d84350b2eb7` 收到用户消息 `probe-ok-22:22` 后，网关日志完整出现 `received message -> dispatching to agent -> dispatch complete (replies=1)`。
+- **22:46 正式群切换完成**：移除测试群 `oc_5e2c2436f0a15c2927273d84350b2eb7` 的专用 `bindings/groups`，恢复项目既有正式群路由；并将规划群 `oc_b0f512c3328263b70ff9772c8288099f` 调整为 `requireMention: false`，避免 @ 识别导致的误拦截。
+- **22:46 私信链路修复**：将 Feishu 单连接从 `default` 切换为 `main`（`main.enabled=true`、`default.enabled=false`），同时将 `dmPolicy` 调整为 `open` 并配置 `allowFrom: ["*"]`；用户反馈私信恢复可用。
+- **22:53 正式群漏拦截补齐**：将饮食群 `oc_d58072ebeb9a73604d17118e5f9bf01b` 显式调整为 `requireMention: false`；热重载后日志恢复 `received message -> dispatching to agent` 链路。
+- **23:07 双机同步自动拉落地（安全模式）**：新增 `scripts/git-auto-pull-safe.sh`（仅工作区干净时 `pull --rebase`，dirty/ahead/diverged 场景自动跳过并记日志），新增 `scripts/ai.openclaw.git-auto-pull.plist`（每 10 分钟执行一次）与 `scripts/README-git-auto-pull.md`。
+- **23:07 冒烟验证通过**：手动执行脚本与 `launchctl kickstart` 均成功，日志 `git-auto-pull.log` 出现预期保护分支（当前 dirty 状态显示 `skip: working tree not clean`）。
+- **23:11 同步状态检查脚本落地**：新增 `scripts/git-sync-status.sh`，一条命令输出 `Worktree`、`Ahead/Behind`、自动拉任务 loaded 状态与最近一次自动拉结果；`README-git-auto-pull.md` 补充「开新对话不会触发 pull」说明与使用方法。
+- **23:11 冒烟验证通过**：执行 `bash scripts/git-sync-status.sh` 输出正常（`AutoPullAgent: loaded`、`LastAutoPull` 有日志）。
 
 ## 2026-03-03
 - **接入会议纪要机器人群到人生导师**：在 `.openclaw/config` 中新增群 `oc_5d9a4e9670c5a94ca916484b52cd9f93` 的 `bindings`（路由到 `thinking`），并在 `channels.feishu.groups` 注册该群（`requireMention` 关闭，允许纪要机器人消息直接进入会话）。

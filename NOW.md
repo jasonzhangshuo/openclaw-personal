@@ -1,6 +1,6 @@
 # NOW（当前事实入口）
 
-最后更新：2026-03-04 21:11（已完成 personalOS 单仓迁移与 Docker 隔离部署模板）
+最后更新：2026-03-04 23:11（双机同步状态脚本已落地）
 负责人：zhangshuo
 
 ## 当前目标
@@ -18,6 +18,12 @@
 - **规划教练每晚 23:00**：cron 触发 lifecoach 读「今日执行日志」+ 30 天计划，生成明日动态时间表，发规划群并写入 `.openclaw/workspace-lifecoach/data/tomorrow_plan/YYYY-MM-DD.md`（**文件名必须为明日日期**）；文件内容**必须**含「时间|任务」Markdown 表格供番茄钟解析（见 life-schedule-coach Skill）。**23:05 脚本兜底**：launchd 跑 `scripts/lifecoach-plan-fallback.js --tomorrow`，从 session 取最后一条计划写入明日文件，避免模型漏写。
 - **数据路径策略（已切换）**：`daily_summary`、`30day`、`rules`、`task_events` 已并入 `.openclaw/workspace-lifecoach/data/personalos/`，教练链路优先读仓库内路径（read 优先，必要时 exec 兜底），不再依赖 `~/personalOS` 作为主路径。
 - **Docker 并行部署模板**：根目录已提供 `Dockerfile` + `docker-compose.yml`（`18790 -> 18789`）+ `docker/entrypoint.sh` + `.env.docker.example`，用于在工作机与现有 OpenClaw 实例隔离共存。
+- **正式群已切换**：测试群 `oc_5e2c2436f0a15c2927273d84350b2eb7` 专用路由已移除，当前按项目既有正式群绑定运行。
+- **Feishu 提及策略（当前）**：全局 `channels.feishu.requireMention` 为 `true`；规划群 `oc_b0f512c3328263b70ff9772c8288099f` 显式 `requireMention: false`，避免 @ 识别导致漏触发。
+- **Feishu 提及策略补齐**：饮食群 `oc_d58072ebeb9a73604d17118e5f9bf01b` 已显式 `requireMention: false`，避免正式群切换后个别群仍按强制 @ 拦截。
+- **Feishu 连接模式（当前）**：Docker 实例仅启用 `main` 账号连接（`main.enabled=true`、`default.enabled=false`）；`dmPolicy=open` + `allowFrom=["*"]`，用户反馈私信已恢复。
+- **双机同步（当前）**：已启用 `launchd` 自动拉（每 10 分钟）`ai.openclaw.git-auto-pull`，脚本为 `scripts/git-auto-pull-safe.sh`；策略为「自动 pull、手动 push」，并在 dirty/ahead/diverged 场景自动跳过（日志：`.openclaw/state/logs/git-auto-pull.log`）。
+- **同步状态检查（当前）**：可运行 `bash scripts/git-sync-status.sh` 一次性查看 `Worktree`、`Ahead/Behind`、自动拉任务 loaded 状态与最近一次自动拉结果，便于跨设备开工前自检。
 - **Cron**：共 **39 条**（规划教练 1、人生导师周/月复盘 2、饮食干预 36）；均为飞书群投递（feishu + oc_xxx）。v2026.2.24 已优化 announce 投递与重试；改 schedule 后需 `./scripts/oc gateway restart`。列表/删/改：`./scripts/oc cron list|rm|edit`。
 - **Cron 监控**：Healthchecks 本地部署在 `healthchecks/`，http://localhost:8000；cron/定时任务可发 ping 到该地址，超时未收到则告警，详见 healthchecks/README.md。
 - **Heartbeat**：**lifecoach** 与 **foodcoach** 均 **每 60 分钟**，且设 **静默时段** `activeHours: 07:00～24:00 (Asia/Shanghai)`（00:00～07:00 不触发）。**lifecoach**：`target: "none"`，发群仅靠 message 工具向规划群发一条；读当日 `daily_summary` + `tomorrow_plan` 对比偏离度，有 `skip_reason` 必须用 message 工具发群；heartbeat 日志必须追加到文件末尾（HEARTBEAT.md）。**foodcoach**：`target: "feishu"` + `to: "oc_群ID"`；读 30day、MEMORY、近期 memory 做轻量判断，按需发群或 HEARTBEAT_OK。Gateway 若报「Feishu account default not configured」：config 已加 `accounts.default`，需重启 Gateway。（原 120 分钟兜底脚本已停用并移除。）
@@ -44,9 +50,9 @@
 - 需继续观察轻量记忆策略调整后的稳定性。
 
 ## 接下来 3 步
-1. 在测试群完成 Docker 新实例灰度：验证收发消息、至少 1 条 cron、无双发。
-2. 通过后切正式群，并关闭旧实例对应群绑定，避免并行双回复。
-3. 连续观察 2-3 天：重点看 cron 的 `timed out` 与 `announce delivery failed` 是否下降。
+1. 连续观察 24 小时：确认正式群与私信都无间歇断连、无重复回复、无异常超时。
+2. 若稳定，清理临时排障备注并固化“main 单连接 + dm open”为默认运行手册。
+3. 继续观察 2-3 天：重点看 cron 的 `timed out`、`announce delivery failed` 与 Feishu `reconnect` 频率。
 
 ## 更新提醒（先提醒、再决定是否更新）
 - **不自动更新**：config 中未开启 `update.auto`，仅靠「提醒」再由你决定是否执行更新。

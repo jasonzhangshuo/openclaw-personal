@@ -2,6 +2,26 @@
 
 用途：记录关键决策、原因与影响，防止“只记得结果不记得为什么”。
 
+## 2026-03-04 - Feishu 最终稳定方案：main 单连接 + 私信 open
+- 决策：Docker 实例采用 `main` 单连接（`main.enabled=true`、`default.enabled=false`），并将 `dmPolicy` 设为 `open`、`allowFrom` 设为 `["*"]`；正式群沿用既有绑定，规划群关闭强制 @。
+- 原因：实践验证显示 `default` 单连接下群可用但私信入站丢失；切回 `main` 单连接后私信恢复。保留双连接会出现账号切换与 `reconnect` 抖动。
+- 影响：当前优先保证“群 + 私信”都稳定可用；后续若恢复双连接，需先完成连续稳定性验证。
+
+## 2026-03-04 - 双机同步策略：自动 pull（安全）+ 手动 push
+- 决策：在仓库内启用 launchd 定时任务，每 10 分钟执行 `scripts/git-auto-pull-safe.sh`；仅在工作区干净且分支有 upstream 时自动 `pull --rebase`。push 继续手动执行，不做自动化。
+- 原因：你在工作机与家里机切换使用，最常见风险是忘记先拉取；但自动 push 容易把临时改动/冲突状态扩散到另一台机器。
+- 影响：两台电脑可复制同一脚本与 plist 获得一致行为；dirty/ahead/diverged 时脚本会跳过并写日志，避免破坏本地现场；配套 `scripts/git-sync-status.sh` 可在开工前一条命令检查同步状态。
+
+## 2026-03-04 - Docker 灰度实例 Feishu 连接单账号化（仅 default）
+- 决策：Docker 灰度实例中禁用 `channels.feishu.accounts.main`，只保留 `default` 账号建立 WebSocket 连接；`bindings` 仍保留 `main/default` 双路由以兼容后续恢复。
+- 原因：同一 Feishu App 双连接（main/default）会出现入站账号来回切换与 `reconnect` 抖动，用户体感为“有时回复有时不回复”。
+- 影响：当前灰度链路稳定性提升；若后续需要恢复双连接，需先验证不会再出现账号切换抖动，再放开 `main.enabled`。
+
+## 2026-03-04 - Feishu 提及策略改为“全局收紧 + 按群显式放开”
+- 决策：`channels.feishu.requireMention` 维持 `true`，仅对确需免 @ 的群（含 Docker 测试群 `oc_5e2c2436f0a15c2927273d84350b2eb7`）显式设置 `requireMention: false`。
+- 原因：排障期间曾用全局放开做临时兜底，但该方式影响面过大；同时 `{}` 在不同版本/配置合并语义下存在歧义，不适合作为长期约定。
+- 影响：提及策略更可控，新增免 @ 群时必须写显式 `requireMention: false`，避免后续升级后行为漂移。
+
 ## 2026-03-04 - Feishu 群路由按 accountId 双轨配置（main + default）
 - 决策：所有按群绑定的 workspace 路由统一同时配置 `accountId=main` 与 `accountId=default`，并补 `main <- feishu accountId=default` 兜底。
 - 原因：线上日志显示同一机器人消息有时以 `feishu[default]` 入站；若 bindings 仅有 `accountId=main`，群消息会出现“收到但不派发到目标 workspace”。
