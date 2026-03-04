@@ -1,0 +1,665 @@
+{
+  "meta": {
+    "lastTouchedVersion": "2026.2.24",
+    "lastTouchedAt": "2026-02-25T13:38:30.691Z"
+  },
+  "update": {
+    "channel": "stable"
+  },
+  "models": {
+    "mode": "merge",
+    "providers": {
+      "deepseek": {
+        "baseUrl": "https://api.deepseek.com/v1",
+        "apiKey": "${DEEPSEEK_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "deepseek-chat",
+            "name": "DeepSeek Chat",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 128000,
+            "maxTokens": 8192
+          }
+        ]
+      },
+      "minimax": {
+        "baseUrl": "https://api.minimaxi.com/anthropic",
+        "apiKey": "${MINIMAX_API_KEY}",
+        "api": "anthropic-messages",
+        "models": [
+          {
+            "id": "MiniMax-M2.5",
+            "name": "MiniMax M2.5",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "MiniMax-VL-01",
+            "name": "MiniMax VL 01",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 200000,
+            "maxTokens": 8192
+          }
+        ]
+      },
+      "zai": {
+        "baseUrl": "https://api.z.ai/api/paas/v4",
+        "apiKey": "${ZAI_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "glm-5",
+            "name": "GLM-5",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 128000,
+            "maxTokens": 8192
+          }
+        ]
+      },
+      "qwen": {
+        "baseUrl": "https://coding.dashscope.aliyuncs.com/v1",
+        "apiKey": "${QWEN_API_KEY}",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen3.5-plus",
+            "name": "Qwen 3.5 Plus",
+            "reasoning": false,
+            "input": [
+              "text"
+            ],
+            "contextWindow": 131072,
+            "maxTokens": 8192
+          },
+          {
+            "id": "qwen-vl-max",
+            "name": "Qwen VL Max",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 128000,
+            "maxTokens": 8192
+          },
+          {
+            "id": "qwen-vl-plus",
+            "name": "Qwen VL Plus",
+            "reasoning": false,
+            "input": [
+              "text",
+              "image"
+            ],
+            "contextWindow": 128000,
+            "maxTokens": 8192
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "minimax/MiniMax-M2.5",
+        "fallbacks": [
+          "qwen/qwen3.5-plus",
+          "deepseek/deepseek-chat"
+        ]
+      },
+      "models": {
+        "minimax/MiniMax-M2.5": {},
+        "qwen/qwen3.5-plus": {},
+        "deepseek/deepseek-chat": {}
+      },
+      "compaction": {
+        "mode": "safeguard"
+      }
+    },
+    "list": [
+      {
+        "id": "main",
+        "default": true,
+        "name": "Main Assistant",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-main",
+        "model": {
+          "primary": "minimax/MiniMax-M2.5",
+          "fallbacks": [
+            "qwen/qwen3.5-plus",
+            "deepseek/deepseek-chat"
+          ]
+        },
+        "subagents": {
+          "allowAgents": [
+            "brainstorm",
+            "coding",
+            "thinking",
+            "lifecoach",
+            "fitcoach",
+            "foodcoach",
+            "imagefenxi",
+            "buddha",
+            "vestcoach",
+            "party"
+          ]
+        }
+      },
+      {
+        "id": "brainstorm",
+        "name": "Brainstorm",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-brainstorm",
+        "model": "deepseek/deepseek-chat",
+        "subagents": {
+          "allowAgents": [
+            "main",
+            "coding",
+            "thinking",
+            "lifecoach",
+            "fitcoach",
+            "foodcoach",
+            "buddha",
+            "vestcoach",
+            "party"
+          ]
+        }
+      },
+      {
+        "id": "coding",
+        "name": "Coding",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-coding",
+        "model": {
+          "primary": "minimax/MiniMax-M2.5",
+          "fallbacks": [
+            "qwen/qwen3.5-plus",
+            "deepseek/deepseek-chat"
+          ]
+        },
+        "subagents": {
+          "allowAgents": [
+            "main",
+            "brainstorm",
+            "thinking",
+            "lifecoach",
+            "fitcoach",
+            "foodcoach",
+            "buddha",
+            "vestcoach",
+            "party"
+          ]
+        }
+      },
+      {
+        "id": "thinking",
+        "name": "人生导师",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-thinking",
+        "model": {
+          "primary": "minimax/MiniMax-M2.5",
+          "fallbacks": [
+            "qwen/qwen3.5-plus",
+            "deepseek/deepseek-chat"
+          ]
+        },
+        "subagents": {
+          "allowAgents": [
+            "main",
+            "brainstorm",
+            "coding",
+            "lifecoach",
+            "fitcoach",
+            "foodcoach",
+            "buddha",
+            "vestcoach",
+            "party"
+          ]
+        }
+      },
+      {
+        "id": "lifecoach",
+        "name": "Life Coach",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-lifecoach",
+        "model": {
+          "primary": "minimax/MiniMax-M2.5",
+          "fallbacks": [
+            "qwen/qwen3.5-plus",
+            "deepseek/deepseek-chat"
+          ]
+        },
+        "heartbeat": {
+          "every": "60m",
+          "target": "none",
+          "activeHours": { "start": "07:00", "end": "24:00", "timezone": "Asia/Shanghai" }
+        },
+        "subagents": {
+          "allowAgents": [
+            "main",
+            "brainstorm",
+            "coding",
+            "thinking",
+            "fitcoach",
+            "foodcoach",
+            "buddha",
+            "vestcoach",
+            "party"
+          ]
+        }
+      },
+      {
+        "id": "fitcoach",
+        "name": "Fit Coach",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-fitcoach",
+        "model": "minimax/MiniMax-M2.5",
+        "subagents": {
+          "allowAgents": [
+            "main",
+            "brainstorm",
+            "coding",
+            "thinking",
+            "lifecoach",
+            "foodcoach",
+            "buddha",
+            "vestcoach",
+            "party"
+          ]
+        }
+      },
+      {
+        "id": "foodcoach",
+        "name": "Food Coach",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-foodcoach",
+        "model": {
+          "primary": "minimax/MiniMax-M2.5",
+          "fallbacks": [
+            "qwen/qwen3.5-plus",
+            "deepseek/deepseek-chat"
+          ]
+        },
+        "heartbeat": {
+          "every": "60m",
+          "target": "feishu",
+          "to": "oc_d58072ebeb9a73604d17118e5f9bf01b",
+          "activeHours": { "start": "07:00", "end": "24:00", "timezone": "Asia/Shanghai" }
+        },
+        "subagents": {
+          "allowAgents": [
+            "main",
+            "brainstorm",
+            "coding",
+            "thinking",
+            "lifecoach",
+            "fitcoach",
+            "buddha",
+            "vestcoach",
+            "party"
+          ]
+        }
+      },
+      {
+        "id": "imagefenxi",
+        "name": "图片分析",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-imagefenxi",
+        "model": "qwen/qwen-vl-max",
+        "subagents": {
+          "allowAgents": [
+            "main",
+            "brainstorm",
+            "coding",
+            "thinking",
+            "lifecoach",
+            "fitcoach",
+            "foodcoach",
+            "buddha",
+            "vestcoach",
+            "party"
+          ]
+        }
+      },
+      {
+        "id": "buddha",
+        "name": "Buddha（佛法老师）",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-buddha",
+        "model": {
+          "primary": "minimax/MiniMax-M2.5",
+          "fallbacks": [
+            "qwen/qwen3.5-plus",
+            "deepseek/deepseek-chat"
+          ]
+        },
+        "subagents": {
+          "allowAgents": [
+            "main",
+            "brainstorm",
+            "coding",
+            "thinking",
+            "lifecoach",
+            "fitcoach",
+            "foodcoach",
+            "imagefenxi",
+            "vestcoach",
+            "party"
+          ]
+        }
+      },
+      {
+        "id": "vestcoach",
+        "name": "Vest Coach（投资教练）",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-vestcoach",
+        "model": {
+          "primary": "minimax/MiniMax-M2.5",
+          "fallbacks": [
+            "qwen/qwen3.5-plus",
+            "deepseek/deepseek-chat"
+          ]
+        },
+        "heartbeat": {
+          "every": "30m",
+          "target": "none",
+          "activeHours": { "start": "09:30", "end": "16:00", "timezone": "Asia/Shanghai" }
+        },
+        "subagents": {
+          "allowAgents": [
+            "main",
+            "brainstorm",
+            "coding",
+            "thinking",
+            "lifecoach",
+            "fitcoach",
+            "foodcoach",
+            "imagefenxi",
+            "buddha",
+            "party"
+          ]
+        }
+      },
+      {
+        "id": "party",
+        "name": "蜂群主持人（Party Host）",
+        "workspace": "/Users/zhangshuo/openclawxitong/.openclaw/workspace-party",
+        "model": {
+          "primary": "minimax/MiniMax-M2.5",
+          "fallbacks": [
+            "qwen/qwen3.5-plus",
+            "deepseek/deepseek-chat"
+          ]
+        },
+        "subagents": {
+          "allowAgents": [
+            "main",
+            "brainstorm",
+            "coding",
+            "thinking",
+            "lifecoach",
+            "fitcoach",
+            "foodcoach",
+            "imagefenxi",
+            "buddha",
+            "vestcoach"
+          ]
+        }
+      }
+    ]
+  },
+  "tools": {
+    "agentToAgent": {
+      "enabled": true,
+      "allow": [
+        "main",
+        "brainstorm",
+        "coding",
+        "thinking",
+        "lifecoach",
+        "fitcoach",
+        "foodcoach",
+        "imagefenxi",
+        "buddha",
+        "vestcoach",
+        "party"
+      ]
+    }
+  },
+  "bindings": [
+    {
+      "agentId": "brainstorm",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main",
+        "peer": {
+          "kind": "group",
+          "id": "oc_f5666943630bbbb828f5d0703871cdf4"
+        }
+      }
+    },
+    {
+      "agentId": "coding",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main",
+        "peer": {
+          "kind": "group",
+          "id": "oc_ce2c18d18f5c80a2fc3a2771ce4cca1b"
+        }
+      }
+    },
+    {
+      "agentId": "thinking",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main",
+        "peer": {
+          "kind": "group",
+          "id": "oc_e5eb757efecfb1367305c64610eb5068"
+        }
+      }
+    },
+    {
+      "agentId": "lifecoach",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main",
+        "peer": {
+          "kind": "group",
+          "id": "oc_b0f512c3328263b70ff9772c8288099f"
+        }
+      }
+    },
+    {
+      "agentId": "fitcoach",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main",
+        "peer": {
+          "kind": "group",
+          "id": "oc_ae2bbb98e9aedfa3a70e607e88a7c29e"
+        }
+      }
+    },
+    {
+      "agentId": "foodcoach",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main",
+        "peer": {
+          "kind": "group",
+          "id": "oc_d58072ebeb9a73604d17118e5f9bf01b"
+        }
+      }
+    },
+    {
+      "agentId": "imagefenxi",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main",
+        "peer": {
+          "kind": "group",
+          "id": "oc_ca9c25de46a17e836172b5a57accfc7d"
+        }
+      }
+    },
+    {
+      "agentId": "buddha",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main",
+        "peer": {
+          "kind": "group",
+          "id": "oc_ccc3b0ba7eda5dea4f796f203aa72d01"
+        }
+      }
+    },
+    {
+      "agentId": "vestcoach",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main",
+        "peer": {
+          "kind": "group",
+          "id": "oc_f08d41bfb84e07670be80e0c8f488558"
+        }
+      }
+    },
+    {
+      "agentId": "party",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main",
+        "peer": {
+          "kind": "group",
+          "id": "oc_39807c4db0d05986700e8a76a9aef578"
+        }
+      }
+    },
+    {
+      "agentId": "party",
+      "match": {
+        "channel": "feishu",
+        "accountId": "default",
+        "peer": {
+          "kind": "group",
+          "id": "oc_39807c4db0d05986700e8a76a9aef578"
+        }
+      }
+    },
+    {
+      "agentId": "main",
+      "match": {
+        "channel": "feishu",
+        "accountId": "main"
+      }
+    }
+  ],
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "channels": {
+    "feishu": {
+      "enabled": true,
+      "dmPolicy": "pairing",
+      "groupPolicy": "open",
+      "accounts": {
+        "main": {
+          "appId": "cli_a91c6023b335dbb4",
+          "appSecret": "6LFV6E89kALnJyipJAdINY6p6MSJLmAS",
+          "botName": "Your Bot",
+          "defaultTo": "group:oc_ae2bbb98e9aedfa3a70e607e88a7c29e"
+        },
+        "default": {
+          "appId": "cli_a91c6023b335dbb4",
+          "appSecret": "6LFV6E89kALnJyipJAdINY6p6MSJLmAS",
+          "botName": "Your Bot",
+          "defaultTo": "group:oc_ae2bbb98e9aedfa3a70e607e88a7c29e"
+        }
+      },
+      "groups": {
+        "oc_f5666943630bbbb828f5d0703871cdf4": {
+          "requireMention": true
+        },
+        "oc_ce2c18d18f5c80a2fc3a2771ce4cca1b": {
+          "requireMention": true
+        },
+        "oc_e5eb757efecfb1367305c64610eb5068": {
+          "requireMention": true
+        },
+        "oc_b0f512c3328263b70ff9772c8288099f": {
+          "requireMention": true
+        },
+        "oc_ae2bbb98e9aedfa3a70e607e88a7c29e": {
+          "requireMention": true
+        },
+        "oc_d58072ebeb9a73604d17118e5f9bf01b": {
+          "requireMention": true
+        },
+        "oc_ca9c25de46a17e836172b5a57accfc7d": {
+          "requireMention": true
+        },
+        "oc_ccc3b0ba7eda5dea4f796f203aa72d01": {
+          "requireMention": true
+        },
+        "oc_f08d41bfb84e07670be80e0c8f488558": {},
+        "oc_39807c4db0d05986700e8a76a9aef578": {
+          "requireMention": true
+        }
+      }
+    }
+  },
+  "gateway": {
+    "mode": "local",
+    "bind": "lan",
+    "auth": {
+      "mode": "token",
+      "token": "2b1bd02076235034ecee368b33772b5103a1cfdc4092e801"
+    },
+    "remote": {
+      "token": "2b1bd02076235034ecee368b33772b5103a1cfdc4092e801"
+    },
+    "controlUi": {
+      "allowedOrigins": [
+        "http://localhost:18789",
+        "http://127.0.0.1:18789"
+      ]
+    }
+  },
+  "plugins": {
+    "entries": {
+      "memos-cloud-openclaw-plugin": {
+        "enabled": true,
+        "config": {
+          "recallEnabled": true,
+          "addEnabled": true,
+          "captureStrategy": "last_turn",
+          "includeAssistant": true,
+          "includePreference": true,
+          "memoryLimitNumber": 8,
+          "preferenceLimitNumber": 3,
+          "recallGlobal": true,
+          "timeoutMs": 5000,
+          "retries": 1
+        }
+      }
+    },
+    "installs": {
+      "memos-cloud-openclaw-plugin": {
+        "source": "path",
+        "sourcePath": "/Users/zhangshuo/openclawxitong/.plugins/MemOS-Cloud-OpenClaw-Plugin",
+        "installPath": "/Users/zhangshuo/openclawxitong/.openclaw/state/extensions/memos-cloud-openclaw-plugin",
+        "version": "0.1.0",
+        "installedAt": "2026-02-18T03:45:29.488Z"
+      }
+    }
+  }
+}

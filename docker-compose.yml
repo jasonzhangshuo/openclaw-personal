@@ -1,0 +1,21 @@
+services:
+  openclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openclaw-gateway
+    restart: unless-stopped
+    env_file:
+      - path: .env.docker
+        required: false
+    environment:
+      OPENCLAW_CONFIG_PATH: /app/.openclaw/config
+      OPENCLAW_STATE_DIR: /app/.openclaw/state
+      PERSONALOS_DATA: /app/.openclaw/workspace-lifecoach/data/personalos
+      TOMORROW_PLAN_DIR: /app/.openclaw/workspace-lifecoach/data/tomorrow_plan
+      TZ: Asia/Shanghai
+    ports:
+      - "18790:18789"
+    volumes:
+      - ./:/app
+    command: ["gateway", "start"]

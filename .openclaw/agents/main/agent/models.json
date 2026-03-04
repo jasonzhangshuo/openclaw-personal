@@ -1,0 +1,27 @@
+{
+  "providers": {
+    "deepseek": {
+      "baseUrl": "https://api.deepseek.com/v1",
+      "apiKey": "sk-8e93a8de6c2542efaf99737b6eeddeb5",
+      "api": "openai-completions",
+      "models": [
+        {
+          "id": "deepseek-chat",
+          "name": "DeepSeek Chat",
+          "reasoning": false,
+          "input": [
+            "text"
+          ],
+          "contextWindow": 128000,
+          "maxTokens": 8192,
+          "cost": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          }
+        }
+      ]
+    }
+  }
+}

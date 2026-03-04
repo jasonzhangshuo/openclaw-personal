@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.openclaw.lifecoach-heartbeat-send</string>
+  <key>Comment</key>
+  <string>每 120 分钟检查 lifecoach session 是否有未发送的 heartbeat 回复，有则通过 send_im_message.py 发到规划群（OpenClaw 投递兜底）</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/zhangshuo/openclawxitong/scripts/lifecoach-heartbeat-send-to-feishu.js</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/zhangshuo/openclawxitong</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key>
+    <string>/Users/zhangshuo</string>
+    <key>OPENCLAW_STATE_DIR</key>
+    <string>/Users/zhangshuo/openclawxitong/.openclaw/state</string>
+    <key>HEARTBEAT_LOGS_DIR</key>
+    <string>/Users/zhangshuo/openclawxitong/.openclaw/workspace-lifecoach/data/heartbeat_logs</string>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+    <key>HEALTHCHECKS_PING_LIFECOACH_SEND</key>
+    <string>http://localhost:8000/ping/5debaa54-6cf5-4980-96d2-9cb2b9666503</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>7200</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/zhangshuo/openclawxitong/.openclaw/state/logs/lifecoach-heartbeat-send.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/zhangshuo/openclawxitong/.openclaw/state/logs/lifecoach-heartbeat-send.err.log</string>
+</dict>
+</plist>

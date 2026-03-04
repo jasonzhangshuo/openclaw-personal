@@ -1,0 +1,15 @@
+{
+  "date": "2026-03-01",
+  "morning_opener_done": false,
+  "morning_opener_time": null,
+  "evening_review_done": true,
+  "evening_review_time": "16:30",
+  "messages_sent": ["收盘复盘：今日市场回顾、账户状态、知识点巩固"],
+  "data_fetched": {
+    "market_overview": true,
+    "account": true,
+    "orders": true,
+    "news": false
+  },
+  "notes": "适应期 Day 2，用户无持仓。复盘围绕大盘/指数概念进行。"
+}

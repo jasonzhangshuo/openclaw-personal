@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.openclaw.update-check-notify</string>
+  <key>Comment</key>
+  <string>每 48 小时跑 OpenClaw 更新检查，有更新则发中文报告到脑暴群</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/zhangshuo/openclawxitong/scripts/update-check-and-notify.js</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/zhangshuo/openclawxitong</string>
+  <key>StartInterval</key>
+  <integer>172800</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OPENCLAW_PROJECT</key>
+    <string>/Users/zhangshuo/openclawxitong</string>
+    <key>OPENCLAW_CONFIG_PATH</key>
+    <string>/Users/zhangshuo/openclawxitong/.openclaw/config</string>
+    <key>OPENCLAW_STATE_DIR</key>
+    <string>/Users/zhangshuo/openclawxitong/.openclaw/state</string>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/zhangshuo/openclawxitong/.openclaw/state/logs/update-check-notify.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/zhangshuo/openclawxitong/.openclaw/state/logs/update-check-notify.err.log</string>
+</dict>
+</plist>

@@ -1,0 +1,12 @@
+.env
+.env.docker
+.openclaw/.env
+.openclaw/config
+.openclaw/state/
+.openclaw/workspace-lifecoach/data/personalos/
+.openclaw/workspace-brainstorm/
+.openclaw/workspace-coding/
+.openclaw/workspace-main/
+
+# Cursor MCP 本地配置（含密钥，勿提交）
+.cursor/mcp.json

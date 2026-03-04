@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.openclaw.lifecoach-plan-fallback</string>
+  <key>Comment</key>
+  <string>规划教练计划落盘兜底：每天 23:05 从 lifecoach session 取最后一条计划写入 tomorrow_plan/明日.md</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/env</string>
+    <string>node</string>
+    <string>/Users/zhangshuo/openclawxitong/scripts/lifecoach-plan-fallback.js</string>
+    <string>--tomorrow</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/zhangshuo/openclawxitong</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OPENCLAW_STATE_DIR</key>
+    <string>/Users/zhangshuo/openclawxitong/.openclaw/state</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>23</integer>
+    <key>Minute</key>
+    <integer>5</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/Users/zhangshuo/openclawxitong/.openclaw/state/logs/lifecoach-plan-fallback.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/zhangshuo/openclawxitong/.openclaw/state/logs/lifecoach-plan-fallback.err.log</string>
+</dict>
+</plist>

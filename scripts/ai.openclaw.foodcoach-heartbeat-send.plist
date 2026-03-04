@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>ai.openclaw.foodcoach-heartbeat-send</string>
+  <key>Comment</key>
+  <string>每 120 分钟检查 foodcoach HEARTBEAT_LOG 是否有新段落，有则通过 send_im_message.py 发到饮食减重群</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/node</string>
+    <string>/Users/zhangshuo/openclawxitong/scripts/foodcoach-heartbeat-send-to-feishu.js</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/Users/zhangshuo/openclawxitong</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>OPENCLAW_STATE_DIR</key>
+    <string>/Users/zhangshuo/openclawxitong/.openclaw/state</string>
+    <key>PATH</key>
+    <string>/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+    <key>HEALTHCHECKS_PING_FOODCOACH_SEND</key>
+    <string>http://localhost:8000/ping/2dba8fc4-9d3c-42c8-a6c3-fb1cd8e3ee6d</string>
+  </dict>
+  <key>StartInterval</key>
+  <integer>7200</integer>
+  <key>StandardOutPath</key>
+  <string>/Users/zhangshuo/openclawxitong/.openclaw/state/logs/foodcoach-heartbeat-send.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/zhangshuo/openclawxitong/.openclaw/state/logs/foodcoach-heartbeat-send.err.log</string>
+</dict>
+</plist>

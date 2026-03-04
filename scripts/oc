@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# 使用本项目 config/state 执行 openclaw 命令。在项目任意目录执行: scripts/oc <子命令> [参数...]
+# 例: scripts/oc gateway status   scripts/oc cron list
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export OPENCLAW_CONFIG_PATH="$REPO_ROOT/.openclaw/config"
+export OPENCLAW_STATE_DIR="$REPO_ROOT/.openclaw/state"
+exec openclaw "$@"

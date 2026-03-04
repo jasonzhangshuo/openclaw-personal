@@ -1,0 +1,207 @@
+# OpenClaw 调度机制：Heartbeat vs Cron（全局强制规则）
+
+**适用范围：本项目所有 OpenClaw 开发、配置修改、新 agent 接入、排查。不针对特定业务，对所有 agent 均适用。**
+
+涉及任何调度行为（定时推送、周期检查、heartbeat、cron job）时，**必须先读本规则**，再动手。
+
+---
+
+## 一、核心区别（不可混淆）
+
+| 维度 | Heartbeat | Cron |
+|------|-----------|------|
+| **时间保证** | ❌ 无精确保证，有漂移 | ✅ 精确时间（cron 表达式 + 时区） |
+| **触发逻辑** | Gateway 每 N 分钟触发一次 | 指定时间/一次性 |
+| **运行位置** | 主会话（shared context） | `isolated`（独立会话）或 `main`（注入主会话） |
+| **配置位置** | `config` → `agents.list[].heartbeat` | `state/cron/jobs.json` 或 `openclaw cron add` |
+| **每个 workspace 行为** | ✅ 每个 agent 可有独立的 `HEARTBEAT.md`，定义完全不同的行为 | ✅ 每个 job 独立，可指定不同 agent、model、payload |
+| **适合场景** | 周期性检查、多项合并监控、需要主会话上下文 | 精确定时推送、独立任务、与主会话无关的分析 |
+
+**关键认知：Heartbeat 不等于「只做简单巡查」。** 每个 workspace 的 HEARTBEAT.md 可以定义复杂的、特定于该 agent 的行为（如读取 API 数据、做分析、向飞书群发消息）。**唯一的本质约束是：不能保证精确触发时间。**
+
+---
+
+## 二、决策规则：什么时候用哪个
+
+```
+需要在精确时间触发（如「每天 08:30」「每周一 09:00」）？
+  → YES → Cron
+
+需要与主会话隔离（不污染历史、用不同 model）？
+  → YES → Cron (isolated)
+
+是否是一次性未来提醒（如「20 分钟后」）？
+  → YES → Cron (--at)
+
+是否是周期性检查，且允许有几分钟漂移？
+  → YES → Heartbeat
+
+是否可以把多个检查合并进一次 agent turn？
+  → YES → Heartbeat（比多个 cron job 更省 API 调用）
+```
+
+**官方快速决策表：**
+
+| 场景 | 用什么 |
+|------|--------|
+| 每天 08:30 发早报 | **Cron** (isolated) |
+| 每天 16:30 收盘复盘 | **Cron** (isolated) |
+| 每 N 分钟检查持仓异常 | **Heartbeat** |
+| 每周一 09:00 深度分析 | **Cron** (isolated) |
+| 20 分钟后提醒 | **Cron** (`--at`) |
+| 每 60 分钟检查执行偏离度 | **Heartbeat** |
+| 监控收件箱/日历/持仓多项合并 | **Heartbeat** |
+
+---
+
+## 三、Heartbeat 完整要点
+
+### 配置
+
+```json5
+// config 中，per-agent 配置（覆盖 defaults）
+{
+  agents: {
+    list: [{
+      id: "lifecoach",
+      heartbeat: {
+        every: "60m",           // 间隔（默认 30m，0m 禁用）
+        target: "none",         // v2026.2.24+ 默认 "none"
+        to: "oc_xxx",           // 可选：target 指向具体 channel 时的 chat id
+        activeHours: { start: "07:00", end: "24:00", timezone: "Asia/Shanghai" },
+        prompt: "Read HEARTBEAT.md...",  // 可 per-agent 自定义 prompt
+        model: "deepseek/deepseek-chat", // 可 per-agent 用更便宜的模型
+        ackMaxChars: 300,       // HEARTBEAT_OK 后允许的最大字符数
+      }
+    }]
+  }
+}
+```
+
+### HEARTBEAT.md 的角色
+
+- 每个 workspace 可有**独立的 HEARTBEAT.md**，定义该 agent 在每次 heartbeat 时做什么
+- 内容可以很复杂：读 API、分析数据、调用 message 工具发群——由该 workspace 的业务决定
+- **必须在最顶部有非注释的实质内容**，否则 OpenClaw 会认为文件为空并跳过（节省 API 调用）
+- **每个 workspace 的 HEARTBEAT.md 是独立的**，不互相影响
+
+### 发群方式（重要）
+
+- `target: "none"`（推荐）：框架不投递助手回复，**发群仅靠 message 工具**，群里只会收到那一句
+- `target: "feishu"` + `to: "oc_xxx"`：框架投递整段助手回复（包含推理过程，易产生多条）
+- **只要不想让整段回复进群，必须用 `target: "none"` + message 工具**
+
+### 响应约定
+
+- 无需主动推送 → 回复 `HEARTBEAT_OK`
+- 需要推送 → 用 message 工具发消息，**不要** 在回复里写推理过程
+
+---
+
+## 四、Cron 完整要点
+
+### 配置（jobs.json 或 CLI）
+
+```json5
+// jobs.json 中的 job 结构
+{
+  "id": "unique-job-id",
+  "agentId": "vestcoach",
+  "name": "VestCoach-早上开盘",
+  "enabled": true,
+  "schedule": {
+    "kind": "cron",
+    "expr": "0 30 8 * * *",   // 6字段（带秒）或5字段 cron 表达式
+    "tz": "Asia/Shanghai"
+  },
+  "sessionTarget": "isolated",  // isolated | main
+  "wakeMode": "now",
+  "payload": {
+    "kind": "agentTurn",         // isolated 用 agentTurn；main 用 systemEvent
+    "message": "执行早上开场逻辑（参考 HEARTBEAT.md 第 2 节）",
+    "timeoutSeconds": 300
+  },
+  "delivery": {
+    "mode": "none",              // none | announce | webhook
+    "channel": "last"
+  }
+}
+```
+
+### 关键行为
+
+- **改 jobs.json 后必须重启 Gateway**：Gateway 只在启动时加载 jobs.json，改文件不会热重载
+- `sessionTarget: "isolated"`：每次独立会话，不共享主历史，适合定时推送
+- `sessionTarget: "main"`：注入主会话，在下次 heartbeat 时处理（适合不需要精确时间的提醒）
+- **stagger**：整点任务默认散开 0-5 分钟；需精确时间用 `--exact` 或 payload 中声明
+
+### Cron 与 HEARTBEAT.md 的关系
+
+Cron 的 payload message 可以**引用** HEARTBEAT.md 某一节作为指令（如「参考 HEARTBEAT.md 第 2 节」），但 **HEARTBEAT.md 本身不应包含时间判断逻辑**——时间由 Cron 决定，HEARTBEAT.md 只描述「该做什么」。
+
+---
+
+## 五、⛔ 历史犯过的错误（必读，不可再犯）
+
+以下错误均来自本项目实际踩坑记录（见 CLAUDE.md）：
+
+### 错误 1：在 HEARTBEAT.md 里写时间判断
+```
+// ❌ 错误写法（出现在 vestcoach 开发中）
+## 判断当前时段
+- 08:30-09:30 → 执行早上开场
+- 16:30-17:30 → 执行收盘复盘
+- 其他时段 → 回复 HEARTBEAT_OK
+```
+**根因**：混淆了 Heartbeat 和 Cron 的职责。时间精确性由 Cron 保证，不由 Heartbeat 自行判断。  
+**正确做法**：早上开场和收盘复盘在 `jobs.json` 中用 Cron 配置精确时间；Heartbeat 只做盘中异常监控，HEARTBEAT.md 只写「检查什么」而不写「什么时间执行」。
+
+### 错误 2：改 Cron 时间后忘记重启 Gateway
+**根因**：Gateway 只在启动时加载 `state/cron/jobs.json`，改文件不会热重载。  
+**正确做法**：改任何 cron schedule 字段后，必须执行 `openclaw gateway restart`。
+
+### 错误 3：heartbeat target 用 "feishu" 导致整段推理进群
+**根因**：`target: "feishu"` 时 Gateway 投递整段助手回复（含推理、步骤说明），用户收到多条乱内容。  
+**正确做法**：heartbeat 的 `target: "none"` + 用 message 工具向指定群发一条；群里只会收到那一句。
+
+### 错误 4：`channels.feishu.accounts` 只配了 `main`，heartbeat 找不到 `default`
+**现象**：Gateway 报 `Feishu account "default" not configured`，heartbeat 虽触发但无法投递。  
+**正确做法**：在 `channels.feishu.accounts` 下加一个与 `main` 同配置的 `default` 账户，重启 Gateway。
+
+### 错误 5：HEARTBEAT.md 只有注释被框架跳过
+**现象**：agent 回复「HEARTBEAT.md 文件内容为空」，heartbeat 什么都没做。  
+**根因**：OpenClaw 检测到 HEARTBEAT.md 仅含注释（`#` 开头行 + 空行），视为空文件，跳过执行。  
+**正确做法**：HEARTBEAT.md 最顶部必须有一行**非注释的实质内容**（如「必须执行本清单，不可跳过。」）。
+
+---
+
+## 六、✅ 新建 Agent 调度 Checklist
+
+每次为 Agent 配置调度时，过一遍：
+
+- [ ] 需要精确时间的任务 → 用 Cron（jobs.json），不要用 Heartbeat
+- [ ] Heartbeat 仅用于周期性检查，可以有漂移
+- [ ] 每个 workspace 的 HEARTBEAT.md 独立定义该 agent 的 heartbeat 行为
+- [ ] HEARTBEAT.md 顶部有非注释实质内容（否则会被跳过）
+- [ ] Heartbeat `target: "none"` + message 工具发群（避免整段进群）
+- [ ] `channels.feishu.accounts` 中有 `default` 账户（避免 heartbeat 投递报错）
+- [ ] 改任何 cron schedule 后执行 `openclaw gateway restart`
+- [ ] HEARTBEAT.md 中不写时间判断逻辑（时间由 Cron 负责）
+
+---
+
+## 七、版本变更追踪
+
+OpenClaw 频繁更新 heartbeat/cron 机制，**每次升级后必须检查**：
+
+- https://docs.openclaw.ai/automation/cron-vs-heartbeat
+- https://docs.openclaw.ai/gateway/heartbeat
+- https://docs.openclaw.ai/automation/cron-jobs
+
+若有 breaking change，**同步更新本规则 + CLAUDE.md**。
+
+当前版本：**OpenClaw v2026.2.26**（上次更新：2026-02-28）
+
+---
+
+*本规则适用全局所有 agent 开发，不针对特定业务。遇到调度相关问题，本规则优先于其他文档。*

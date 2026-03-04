@@ -1,0 +1,16 @@
+{
+  "date": "2026-02-27",
+  "morning_opener_done": true,
+  "morning_opener_time": "15:06",
+  "evening_review_done": true,
+  "evening_review_time": "18:02",
+  "messages_sent": ["早上开场：市场速览、持仓分析、今日任务、持仓管理知识点", "收盘复盘：今日盈亏-1.05%、原因分析、止损知识点"],
+  "data_fetched": {
+    "market_overview": true,
+    "account": true,
+    "orders": true,
+    "news": false,
+    "indicators": true
+  },
+  "notes": "新闻API超时，其他数据正常获取。用户持有腾讯(0700.HK)10股，技术面偏空但RSI接近超卖。今日重点教持仓管理。"
+}

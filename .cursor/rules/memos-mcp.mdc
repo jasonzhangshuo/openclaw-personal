@@ -1,0 +1,16 @@
+---
+description: 在本项目中启用 MemOS MCP 时，优先使用记忆检索与保存，提升对话一致性与个性化
+globs: 
+alwaysApply: false
+---
+
+# MemOS 记忆管理（MCP）
+
+当 **memos-api-mcp** 已配置并处于运行状态时：
+
+- **回答前**：调用 `search_memory`，用与当前话题相关的检索词在用户记忆库中搜索。
+- **回答后**：调用 `add_message`，将当前对话摘要写入记忆（每次回复后都要执行，便于后续检索）。
+
+仅使用与当前话题相关的记忆；无关结果可忽略，正常回答即可。
+
+参考：[MemOS MCP 使用指南](https://memos-docs.openmem.net/cn/mcp_agent/mcp/guide)
