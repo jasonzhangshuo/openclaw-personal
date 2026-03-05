@@ -4,4 +4,10 @@
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export OPENCLAW_CONFIG_PATH="$REPO_ROOT/.openclaw/config"
 export OPENCLAW_STATE_DIR="$REPO_ROOT/.openclaw/state"
+
+# Docker 部署：自动读取 token 并使用正确端口
+GATEWAY_TOKEN=$(jq -r '.gateway.auth.token // empty' "$REPO_ROOT/.openclaw/config" 2>/dev/null)
+export OPENCLAW_GATEWAY_URL="${OPENCLAW_GATEWAY_URL:-ws://127.0.0.1:18790}"
+export OPENCLAW_GATEWAY_TOKEN="${OPENCLAW_GATEWAY_TOKEN:-$GATEWAY_TOKEN}"
+
 exec openclaw "$@"
