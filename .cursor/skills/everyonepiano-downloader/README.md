@@ -64,3 +64,14 @@ python scripts/download_piano.py https://www.everyonepiano.cn/Stave-14747-1.html
 
 > **💡 练琴/Solo 小技巧**：
 > 拿到 MIDI 文件后，不用花钱买 PRO 会员。你可以把它拖进任意音乐软件（比如 GarageBand、Logic，或者免费的 MuseScore 电脑版），所有乐器和左右手都会变成独立的轨道。你可以随心所欲地 Solo（独奏）任何一条轨道、或者把它静音，这比网页版自带的练习功能还要好用！
+
+### 进阶：如何获取 MusicXML 文件？（为了生成简谱/导入打谱软件）
+
+MuseScore 的网页端本身不提供 XML 下载。如果你需要 `MusicXML` 文件（比如你想用它导入**易谱**或**作曲大师**一键生成简谱），需要按以下步骤进行格式转换：
+
+1. **先获取原始数据**：建议在网络上寻找或使用 LibreScore APP 下载原版的 `.mscz` 文件，或者使用上面的油猴脚本下载好 `.mid`（MIDI）文件。
+2. **反向编译为 XML**：打开 LibreScore 官方的无痕本地转换工具：👉 **[Webmscore](https://webmscore-pwa.librescore.org/)**
+3. 把你的 `.mscz` 或 `.mid` 文件拖进这个网页。
+4. 在 "Export to" 里勾选 **`MusicXML`**，然后点击 **Convert**。
+5. 几秒钟后，你就获得了一个完美的、包含全部排版和歌词信息的 MusicXML 源文件了！
+6. **一键生成简谱**：将下载好的 MusicXML 文件直接拖入 [易谱 (Ziipoo)](http://ziipoo.com/) 等简谱软件中，即可秒出带歌词的规范简谱。
