@@ -90,6 +90,10 @@
   **原因**：Gateway 只在启动时从磁盘加载 cron；改 jobs.json 后若不重启，内存里仍是旧 schedule（如 21:00），实际触发时间不变。  
   **正确做法**：改 cron 时间（或任何 schedule 相关字段）后，必须执行 `openclaw gateway restart`（或 launchctl unload/load plist 再 restart），让 Gateway 重新加载 `.openclaw/state/cron/jobs.json` 后 23:00 才会生效。
 
+- **现象**：迁移到 Docker 后，`lifecoach-daily-tomorrow-plan` 在 23:00 经常超时，次日番茄钟显示计划为空。  
+  **原因**：cron payload 写死宿主机绝对路径（`/Users/zhangshuo/...`），容器内先连续 `ENOENT` 再继续执行，180 秒超时被打满。  
+  **正确做法**：cron payload 必须做“根路径自适应”（优先 `/app`，宿主机路径仅兜底），并给复杂任务留足超时（如 `timeoutSeconds=300`）；改完后立刻 `openclaw cron run <id> --expect-final` 冒烟，确认文件成功写入 `tomorrow_plan/YYYY-MM-DD.md`。
+
 ### 升级 / Config 兼容（v2026.2.24+）
 
 - **现象**：升级到 OpenClaw v2026.2.24 后 Gateway 启动即退出，gateway.err.log 报 `Invalid config`、`plugin not found: feishu`、`unknown channel id: feishu`、`unknown heartbeat target: feishu`、`plugin not found: qwen-portal-auth` 等。  
@@ -222,8 +226,80 @@
   **原因**：`bindings` 只配置了 `accountId=main`，而实际入站消息部分走 `accountId=default`，导致群路由匹配不到目标 agent。  
   **正确做法**：按群绑定时同时配置 `accountId=main` 与 `accountId=default` 两条（或确保实际入站账号与 bindings 一致），并补 `main <- feishu accountId=default` 兜底；修改后 `openclaw gateway restart`，再用 `openclaw agents bindings` 与日志确认生效。
 
+- **现象**：机器人可主动向群发消息（`openclaw message send` 成功）但群里用户发消息后不回复，且日志长时间没有新的 `received message`。  
+  **原因**：Feishu WebSocket 连接处于 `reconnect` 状态但未恢复到 `ws client ready`，导致入站事件没有稳定进入 Gateway。  
+  **正确做法**：排障时先看日志是否出现两条 `ws client ready`（main/default）；未 ready 先重启 Gateway/容器再测。冒烟通过标准要包含 `received message -> dispatching to agent`，不能只看“主动发群成功”。
+
+- **现象**：用 `{}` 作为群配置时，对“是否必须 @ 才触发”的行为预期不稳定。  
+  **原因**：`{}` 依赖全局 `channels.feishu.requireMention` 回落值；升级或全局策略调整后，行为可能变化。  
+  **正确做法**：需要免 @ 的群写成显式 `{"requireMention": false}`；需要强制 @ 的群写成显式 `{"requireMention": true}`，不要依赖 `{}` 的隐式语义。
+
+- **现象**：同一 Feishu App 配了 `main/default` 两个账号并同时启用后，日志里入站账号在 `feishu[main]` 与 `feishu[default]` 间切换，间歇出现 `reconnect`，用户体感“忽好忽坏”。  
+  **原因**：同 App 双 WebSocket 连接在灰度环境下会带来连接竞争/切换抖动，导致稳定性下降。  
+  **正确做法**：灰度排障优先单连接运行（仅启用一个账号，如 `default`）；稳定后再评估是否恢复双连接。验证标准必须看日志完整链路：`received message -> dispatching to agent -> dispatch complete`。
+
+- **现象**：切到 `default` 单连接后“群都正常但私信完全不回”；日志里没有任何 `(p2p)/(private)` 入站。  
+  **原因**：在当前环境中，私信入站对账号选择敏感；`default` 单连接会出现私信事件不进入网关。  
+  **正确做法**：若出现“群好私信坏”，切到 `main` 单连接（`main.enabled=true`、`default.enabled=false`）并保留 `dmPolicy: open` + `allowFrom: ["*"]`，再用私信探针验证。
+
+- **现象**：切正式群后出现“有的群能回、有的群不回”，日志提示 `did not mention bot`。  
+  **原因**：只改了部分群的 `requireMention`，遗漏某些正式群仍是 `true`。  
+  **正确做法**：正式群切换时对目标群逐一显式配置 `requireMention`（需要免 @ 的群统一设为 `false`），并按群做最小冒烟（每群至少 1 条普通消息）确认 `received -> dispatching -> complete`。
+
 ### personalOS 合并单仓（2026-03-04）
 
 - **现象**：明明已把 `personalOS` 数据迁到本仓库，cron/Skill 仍偶发读旧路径（`/Users/zhangshuo/personalOS/...`），导致新环境（Docker/工作机）报文件不存在。  
   **原因**：只迁了数据，没同步改全链路引用（Skill、HEARTBEAT、`jobs.json` payload、脚本默认路径）。  
   **正确做法**：迁移后必须一次性替换整条链路到 `.openclaw/workspace-lifecoach/data/personalos/`，并跑三项冒烟：`migrate-personalos-into-workspace.js`、`smoke-test-lifecoach-workspace.js`、`jobs.json` 语法校验；全部通过后再更新 CHANGELOG/DECISIONS/NOW。
+
+### Dashboard / Docker 端口口径（2026-03-05）
+
+- **现象**：Docker 网关明明在跑，但打开 Dashboard 显示打不开（`127.0.0.1:18789` 连接失败）。  
+  **原因**：Docker 映射端口是 `18790 -> 18789`，而 `openclaw dashboard --no-open` 在该模式下常给出容器内口径（`18789`），宿主机直接访问会误判为网关异常。  
+  **正确做法**：Docker 部署统一用 `scripts/dashboard-docker`（或 `--print`）生成并打开 URL，默认走 `http://127.0.0.1:18790/#token=...`；排障时先确认 `docker ps` 端口映射，再看 probe 结果。
+
+- **现象**：Dashboard 打开后提示 `origin not allowed (open the Control UI from the gateway host or allow it in gateway.controlUi.allowedOrigins)`。  
+  **原因**：`gateway.controlUi.allowedOrigins` 仍是旧端口/旧域名（常见只配 `18789`），而实际从 Docker 映射端口 `18790` 或局域网地址打开。  
+  **正确做法**：把实际访问 origin（如 `http://localhost:18790`、`http://127.0.0.1:18790`、`http://192.168.1.22:18790`）加入 `allowedOrigins`，然后重启 gateway 容器；改端口/域名时同步维护白名单。
+
+- **现象**：Dashboard 一直显示 `pairing required`，即使 token 正确且 origin 已在白名单。  
+  **原因**：Docker 桥接下网关看到的客户端来源常是 `192.168.65.1`（非 loopback），Control UI 会触发设备 pairing 检查；本机浏览器在该拓扑下不再被判定为“本地自动配对”。  
+  **正确做法**：本机调试阶段可临时启用 `gateway.controlUi.dangerouslyDisableDeviceAuth=true` 并重启容器快速恢复；长期应改为 HTTPS/Tailscale/受信代理后关闭该开关，避免长期安全降级。
+
+### Codex OAuth 与外部 CLI 登录
+
+- **现象**：`openclaw models auth login --provider openai-codex` 报错 `Unknown provider "openai-codex"`，且无法在命令行直接完成 Codex 登录。
+  **原因**：OpenClaw 当前版本未内置 `openai-codex` 的 CLI 登录插件，而是依赖 `@mariozechner/pi-ai` 内部 OAuth 逻辑。
+  **正确做法**：在宿主机用 `codex login` 登录获取 `~/.codex/auth.json`，然后将其转换为 `auth-profiles.json` 的 `oauth` profile 注入到 OpenClaw 项目中。
+
+- **现象**：手动注入 Codex OAuth 信息后，OpenClaw 报 `HTTP 401: invalid access token or token expired`。
+  **原因**：手动注入 `auth-profiles.json` 时，将字段名写成了 `accessToken` 和 `refreshToken`。而 `@mariozechner/pi-ai` 获取 token 时严格取 `credentials.access` 和 `credentials.refresh`，导致拿到 `undefined`。
+  **正确做法**：写入 `auth-profiles.json` 时，务必使用 `access`、`refresh`、`expires`、`accountId` 字段名，然后重启 Gateway。
+
+- **现象**：升级到 `2026.3.11` 后，还按旧经验以为 `openclaw models auth login --provider openai-codex` 仍然不可用，于是继续走“手工注入 token + 停留在 gpt-5.2/5.3”的旧方案。 
+ **原因**：历史故障经验已经过期；`2026.3.11` 这版已原生支持 `openai-codex` OAuth 登录，模型目录也已包含 `openai-codex/gpt-5.4`。 
+ **正确做法**：先用 `openclaw models list --all --provider openai-codex --plain` 和 `openclaw models status --json` 以当前版本事实为准；若 provider 已内置且 OAuth profile `status: ok`，优先走原生 `openai-codex/gpt-5.4`，不要延续旧的手工注入心智。
+
+### coding agent worktree 沙盒（2026-03-08）
+
+- **现象**：把 `coding` agent 的 workspace 改到新 worktree 后，容器里虽然能看到 `/app-bot`，但 `/app-bot/.openclaw/workspace-coding` 不存在，agent 启动时会缺少 SOUL/TOOLS 等工作区文件。  
+  **原因**：`workspace-coding` 是主目录里的本地工作区，不是 git 已跟踪内容；新建 `git worktree` 时不会自动带过去。  
+  **正确做法**：切换 `coding` workspace 到 worktree 前，先在 `bot/dev` 中补齐 `workspace-coding` 目录及最小完整文件（至少 `AGENTS.md`、`SOUL.md`、`TOOLS.md`、`IDENTITY.md`、`USER.md`、`HEARTBEAT.md`、`BOOTSTRAP.md`），再重启容器/网关并做 `workspaceDir=/app-bot/.openclaw/workspace-coding` 冒烟验证。
+
+### 调度清理 / Docker 遗留（2026-03-13）
+
+- **现象**：`openclaw cron list` 里部分 job 的 `lastError` 仍显示 `Error: ENOENT: no such file or directory, mkdir '/app'`，看起来像当前宿主机配置还在引用 Docker 路径。 
+ **原因**：这类 `/app` 错误可能只是**上一次在 Docker 环境运行时留下的历史状态**，不一定代表当前 payload 或 workspace 仍然写死 `/app`。如果刚从 Docker 切回宿主机，状态表会继续显示旧错误，直到该 job 再次真实运行。 
+ **正确做法**：先核对当前活跃 config / workspace 是否已指向宿主机路径，再用**不发群的 agent smoke test**或手动 rerun 验证链路；确认当前运行已正常后，再决定是否改 payload 文案。不要仅凭历史 `lastError` 就误改业务逻辑。
+
+### Feishu 群回复稳定性（2026-03-13）
+
+- **现象**：某个教练群“就是不回复”，但 direct smoke test 和模型状态都正常，误以为是模型或 OAuth 不稳定。 
+ **原因**：很多时候根因不是模型，而是该群仍配置了 `requireMention: true`；普通群消息虽然进入网关，但会被 `did not mention bot` 直接拦掉。 
+ **正确做法**：先查日志链路：`received message -> did not mention bot` 说明是群提及策略问题，不是模型问题。教练类群若预期“像真人教练一样群里直接说话就触发”，就把对应 `channels.feishu.groups.<chat_id>.requireMention` 设为 `false`，再 `gateway restart`。
+
+### TTS 语音回复被 NO_REPLY 拦截（2026-03-14）
+
+- **现象**：用户要求「只发语音，不要文本」时，助手调用了 `tts` 工具生成了音频，但用户最后什么都没收到（连音频也没有）。
+ **原因**：当模型想要严格遵守「不要文本」的偏好时，会在调用完 `tts` 后返回 `NO_REPLY` 作为最终输出；但 OpenClaw 框架看到 `NO_REPLY` 后会**直接丢弃整条消息**（包括工具返回的媒体附件），导致发送中断。
+ **正确做法**：在对应 Agent 的 `SOUL.md` 中增加明确规则：当使用 `tts` 工具且需要仅发语音时，**严禁输出 NO_REPLY**。如果必须纯语音，可以输出一个零宽字符（如 `​` 或 ` ` 半角空格），系统会将其处理为空消息文本并正确附带语音文件，千万不要触发 `NO_REPLY` 机制。

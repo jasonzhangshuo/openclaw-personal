@@ -2,6 +2,40 @@
 
 用途：记录“实际做了什么”。保持短句、按时间顺序追加。
 
+## 2026-03-14
+[2026-03-14 10:05]
+- 第一步：运行 `date` 命令获取时间，得到 `2026-03-14 10:05`。
+- 第二步：复制时间到记录中。
+- 第三步：记录对话内容
+  - 用户反馈：“你关闭语音吧，我觉得这个影响很大啊，回复了一次，又不回复了”
+  - 排查与修复过程：
+    - 检查网关日志，发现 `[feishu] feishu[main]: received message from...` 进来了，但后面出现 `Gateway agent failed; falling back to embedded: Error: gateway closed` 报错。
+    - 这表明网关出现了一些连接异常或者崩溃。
+    - 考虑到之前的 `NO_REPLY` 机制对于框架的影响，虽然改为回复极短文字可以避开直接丢弃，但在处理纯语音时确实更容易出各种边缘问题。
+    - 决定彻底取消主助手的语音偏好，恢复纯文本对话。
+    - 首先，修改 `.openclaw/workspace-main/SOUL.md` 和 `CLAUDE.md`，将处理纯语音的回退方案由原来的明确短句改写为更隐蔽的占位符（虽然本次已决定不用，但保留最稳妥的保底规则）。
+    - 其次，也是最核心的，通过 CLI 手动向主助手发送多条消息，让其主动在 MemOS 及其本地 `MEMORY.md` 记忆中写入“取消只发语音，恢复文本对话”的明确偏好指令。
+    - 重启 Gateway 服务。
+    - 最后，通过后台直接通过发送消息进行冒烟测试，确认主助手开始正常使用纯文本进行回复，测试成功。
+- **强化语音回复 NO_REPLY 规避机制**：更新了 `CLAUDE.md` 和 `.openclaw/workspace-main/SOUL.md`，使用“零宽字符”或“半角空格”来替代 `NO_REPLY`，以彻底避免框架在纯语音场景下识别到纯空白而错误拦截整个带有语音附件的媒体消息。
+- **取消主助手纯语音偏好**：执行了 `openclaw agent` 命令让主助手记录“取消纯语音偏好”的本地记忆和 MemOS 记忆，并在后台通过私信冒烟测试确认文本回复功能已正常。
+- **修复 TTS 语音回复被丢弃问题**：定位并修复了当用户要求“只发语音，不要文本”时，模型输出 `NO_REPLY` 导致整个消息（含生成的语音音频附件）被 OpenClaw 框架全部丢弃的 Bug。在 `main` 助手的 `SOUL.md` 中添加禁止使用 `NO_REPLY` 的强制规则，并添加了使用极短文本作为占位的解决办法，同步更新了 `CLAUDE.md` 防踩坑文档。
+- **升级 OpenClaw 2026.3.11 -> 2026.3.12**：通过 `npm install -g openclaw@latest` 成功将 OpenClaw 升级至 `2026.3.12`。升级完成后已使用 `launchctl unload/load` 重启网关，网关状态 `Runtime: running` 且 `RPC probe: ok`。
+- **冒烟测试通过**：升级后通过 `openclaw models list` 正常输出，验证了环境、网关配置正常。
+
+## 2026-03-13
+- **05:49~06:02 调度清理第一轮完成**：按人工确认删除一次性 cron `b847ab80-e609-4af7-95ac-bffca19271c7`（番茄钟提醒-自修45分钟），OpenClaw active cron 总数由 44 条降为 **43 条**。
+- **卸载高噪音坏任务**：从 `~/Library/LaunchAgents/` 卸载并删除 `ai.openclaw.buddha-reply-audio-send.plist`；当前 `ai.openclaw*` LaunchAgent 保留 `gateway` 常驻 + 5 条定时任务。
+- **Cron 稳定性收敛**：将全部 `foodcoach` 干预 cron 的 `timeoutSeconds` 统一调到 `120`；`fitcoach` 两条调到 `180`；`thinking` 周/月复盘调到 `300`；`vestcoach` 早盘/收盘 cron 补充“数据层不可用时立即降级输出、不要长时间重试”的硬约束，并统一为 `300` 秒。
+- **修复 launchd 入口问题**：`lifecoach-plan-fallback` 的 repo/plist 与已安装 plist 改为绝对 Node 路径 `/opt/homebrew/bin/node`，并补 `HOME`/`PATH`；`garmin-notify` 与 `garmin-weekly` 的已安装 plist 改为 `/bin/bash` + 显式 `PATH`/`OPENCLAW_*` 环境。
+- **修复 Garmin 脚本在 launchd 下的二进制解析**：`scripts/garmin_notify.sh` 与 `scripts/garmin_weekly_push.sh` 改为显式解析 `openclaw` 与 `python3` 绝对路径，并在脚本内导出 `OPENCLAW_CONFIG_PATH`、`OPENCLAW_STATE_DIR` 与稳定 `PATH`。
+- **冒烟验证通过**：`openclaw gateway status` 返回 `Runtime: running`、`RPC probe: ok`；`launchctl list` 中剩余 `ai.openclaw*` 条目状态均为 `0`；`foodcoach`、`fitcoach`、`thinking`、`vestcoach` 均已完成一轮不发群 smoke test，其中 `vestcoach` 在 `localhost:8001` 不可用时成功走降级输出。
+- **07:27 原生 Codex OAuth + GPT-5.4 切换完成**：确认当前 OpenClaw `2026.3.11` 已原生支持 `openai-codex` OAuth 与 `openai-codex/gpt-5.4`；项目默认模型与主要文本 agent 已统一切到 `gpt-5.4`，fallback 调整为 `gpt-5.3-codex -> minimax -> qwen -> deepseek`，并移除旧的 `gpt-5.2` allowlist 残留。
+- **原生 OAuth 状态核验通过**：`openclaw models status --json` 显示 `openai-codex:codex-cli` OAuth profile `status: ok`，且 `thinking` / `coding` 已继承 main agent 的 auth-profiles；`openclaw agent --agent main --message "只回复：gpt54 smoke ok"` 成功返回，验证默认模型已实际切到 `gpt-5.4`。
+- **07:32 fallback 继续收窄**：按最新确认将文本主链 fallback 进一步精简为仅保留 `minimax/MiniMax-M2.5` 与 `deepseek/deepseek-chat` 两条，移除 `openai-codex/gpt-5.3-codex` 与 `qwen/qwen3.5-plus` 作为 fallback 的角色；`config validate`、`gateway restart` 与 `models status --json` 已验证新链路生效。
+- **07:43 修复 fitcoach 群必须 @ 才触发**：将运动教练群 `oc_ae2bbb98e9aedfa3a70e607e88a7c29e` 的 `channels.feishu.groups` 显式改为 `requireMention: false`，避免普通群消息被 `did not mention bot` 拦截。
+- **配置级冒烟通过**：`openclaw config validate --json` 通过，`openclaw gateway restart` 后 `gateway status` 为 `Runtime: running`、`RPC probe: ok`；用户侧仍需在运动群发送一条普通消息做最终 E2E 验收。
+
 ## 2026-03-04
 - **21:11 personalOS 并入单仓目录**：新增迁移脚本 `scripts/migrate-personalos-into-workspace.js`，将 `~/personalOS` 的 `daily_summary`、`plan_overrides`、`task_events.jsonl`、`30day.md` 迁移到 `.openclaw/workspace-lifecoach/data/personalos/`，并写入迁移标记文件 `MIGRATION-INFO.md`。
 - **路径与脚本切换完成**：`lifecoach/fitcoach/foodcoach` 相关 Skill、`lifecoach` 与 `foodcoach` HEARTBEAT、`thinking` HEARTBEAT 注释、`sync-task-event.js`、`jobs.json` 三条关键 cron payload 均改为优先使用仓库内 `workspace-lifecoach/data/personalos` 路径，不再依赖 `~/personalOS`。
@@ -23,6 +57,18 @@
 - **23:07 冒烟验证通过**：手动执行脚本与 `launchctl kickstart` 均成功，日志 `git-auto-pull.log` 出现预期保护分支（当前 dirty 状态显示 `skip: working tree not clean`）。
 - **23:11 同步状态检查脚本落地**：新增 `scripts/git-sync-status.sh`，一条命令输出 `Worktree`、`Ahead/Behind`、自动拉任务 loaded 状态与最近一次自动拉结果；`README-git-auto-pull.md` 补充「开新对话不会触发 pull」说明与使用方法。
 - **23:11 冒烟验证通过**：执行 `bash scripts/git-sync-status.sh` 输出正常（`AutoPullAgent: loaded`、`LastAutoPull` 有日志）。
+
+## 2026-03-05
+- **07:42 新增 Docker Dashboard 一键命令**：新增可执行脚本 `scripts/dashboard-docker`，自动读取 `.openclaw/config` 的 `gateway.auth.token` 并拼接 Docker 端口 URL（默认 `http://127.0.0.1:18790/#token=...`），支持 `--print` / `--host` / `--port`。
+- **07:42 排障结论固化**：确认当前实例运行在 Docker（`18790 -> 18789`），`openclaw dashboard --no-open` 默认给出的 `127.0.0.1:18789` 在宿主机不可达，导致“Dashboard 打不开”误判。
+- **07:42 冒烟验证通过**：执行 `scripts/dashboard-docker --print` 与 `scripts/dashboard-docker --host 127.0.0.1 --port 18790 --print` 均返回可访问 URL；`curl http://127.0.0.1:18790/?token=...` 返回 200。
+- **07:45 修复 Dashboard `origin not allowed`**：在 `.openclaw/config` 的 `gateway.controlUi.allowedOrigins` 补齐 Docker 场景来源：`http://localhost:18790`、`http://127.0.0.1:18790`、`http://192.168.1.22:18790`（保留原 `18789`），并重启容器生效。
+- **07:45 验证通过**：重启后日志出现 `config change requires gateway restart (gateway.controlUi.allowedOrigins)` 且 `ws client ready`；`openclaw gateway probe --url ws://127.0.0.1:18790 --token ...` 返回 `RPC: ok`。
+- **07:49 修复 Dashboard `pairing required`（Docker 桥接场景）**：在 `.openclaw/config` 增加 `gateway.controlUi.dangerouslyDisableDeviceAuth: true`，解决容器内看到客户端为 `192.168.65.1` 时被判定为非本地设备而强制 pairing 的问题。
+- **07:49 验证通过**：容器重载日志出现 `config change requires gateway restart (gateway.controlUi.dangerouslyDisableDeviceAuth)`，网关探测 `ws://127.0.0.1:18790` 返回 `RPC: ok`；日志不再新增同时间段的 `pairing required` 拒绝记录。
+- **08:02 修复规划教练 23:00 cron 在 Docker 下超时**：更新 `lifecoach-daily-tomorrow-plan` 的 payload，改为先判断根路径（`/app` 优先，宿主机路径兜底）再读取 `daily_summary/30day` 与写 `tomorrow_plan`；同时将 `timeoutSeconds` 从 `180` 调整为 `300`。
+- **08:02 冒烟验证通过（关键链路）**：手动执行 `./scripts/oc cron run lifecoach-daily-tomorrow-plan --expect-final` 返回 `ok`，`cron runs` 最新记录 `status: ok`、`deliveryStatus: delivered`，并成功生成 `.openclaw/workspace-lifecoach/data/tomorrow_plan/2026-03-06.md`。
+- **08:02 现场补偿**：手动触发 lifecoach 生成当日计划，成功写入 `.openclaw/workspace-lifecoach/data/tomorrow_plan/2026-03-05.md`；`http://127.0.0.1:8766/schedule.json` 已恢复返回当日任务列表（不再为空）。
 
 ## 2026-03-03
 - **接入会议纪要机器人群到人生导师**：在 `.openclaw/config` 中新增群 `oc_5d9a4e9670c5a94ca916484b52cd9f93` 的 `bindings`（路由到 `thinking`），并在 `channels.feishu.groups` 注册该群（`requireMention` 关闭，允许纪要机器人消息直接进入会话）。
@@ -144,3 +190,17 @@
 - **修复 Gateway 启动失败（v2026.3.1 新增 gateway.mode 必填）**：升级后 Gateway 报 `Gateway start blocked: set gateway.mode=local (current: unset)`，原因是 plist 使用 `~/.openclaw/config`，该 config 的 `gateway` 块缺少 `"mode": "local"`。在 `~/.openclaw/config` 的 `gateway` 下补 `"mode": "local"`，重启后 `RPC probe: ok`，端口 18789 正常监听。
 - **修复 main agent 报 "No API key for anthropic"**：根本原因有两处：① `~/.openclaw/config`（用户级 config）缺少 `agents.defaults.model` 配置，框架默认 anthropic；② plist `EnvironmentVariables` 未包含 MINIMAX_API_KEY / QWEN_API_KEY / DEEPSEEK_API_KEY 等 API key，模型无法调用。修复：在 `~/.openclaw/config` 的 `agents.defaults` 下补 `model.primary: "minimax/MiniMax-M2.5"` 及 fallbacks（qwen/deepseek）；在 plist 中补全所有 API key（MINIMAX/QWEN/DEEPSEEK/ZAI/MEMOS/TAVILY/FEISHU）及 `TZ=Asia/Shanghai`；launchctl unload/load 重启后 Gateway 正常运行。
 - **统一 dashboard token，避免双机书签串线**：发现 `openclaw dashboard --no-open` 默认读取用户级 `~/.openclaw/config`，而 Gateway 进程可由 plist 指向项目级 `.openclaw/config`；两者 token 不一致会造成「URL 带的 token」与「Gateway 实际 token」错位，表现为 token mismatch/401。修复：将 `~/.openclaw/config` 的 `gateway.auth.token` 对齐为 `2b1bd02076235034ecee368b33772b5103a1cfdc4092e801`，并验证带/不带项目 env 执行 `openclaw dashboard --no-open` 都返回同一 token。
+
+## 2026-03-07
+
+- **绑定 Codex CLI OAuth 到 OpenClaw**：由于 OpenClaw 当前版本未内置 `openai-codex` 的 CLI 登录插件支持，通过 `codex login` 获得的 OAuth Token 无法直接通过 `openclaw models auth login` 导入。编写 JS 脚本直接读取 `~/.codex/auth.json` 中的 access token 和 refresh token，并手动写入 `.openclaw/state/agents/main/agent/auth-profiles.json` 中。
+- **修复 openai-codex 报 401 invalid access token**：注入 OAuth credential 时需注意属性名为 `access` 和 `refresh`（而非 `accessToken`），否则 `@mariozechner/pi-ai` 获取不到 key 导致 HTTP 401。修复字段名后重启 docker container 验证通过。
+
+## 2026-03-08
+
+- **为 coding agent 建立独立开发沙盒**：创建 `bot/dev` 分支与 `git worktree` 目录 `/Users/zhangshuo/openclawxitong-bot`，用于让 coding agent 在独立副本中改代码，不直接污染主目录。
+- **Docker 挂载 bot worktree**：`docker-compose.yml` 新增 `/Users/zhangshuo/openclawxitong-bot:/app-bot`，并重建 `openclaw-gateway` 容器，使容器内可见 `/app-bot`。
+- **新接入技术大神群到 coding agent**：`.openclaw/config` 中新增群 `oc_093043b3a1ced90241f711b33019a373`（`requireMention: false`）及 `accountId=main/default` 两条 bindings；同时把 `coding` 的 workspace 改为 `/app-bot/.openclaw/workspace-coding`。
+- **在 bot/dev 中补齐 workspace-coding**：由于 `workspace-coding` 不在 git 已跟踪内容里，新 worktree 初始不存在该目录；已在 `bot/dev` 下创建最小完整工作区（`AGENTS.md`、`SOUL.md`、`TOOLS.md`、`IDENTITY.md`、`USER.md`、`HEARTBEAT.md`、`BOOTSTRAP.md`）。
+- **coding agent 沙盒指令已收紧**：`bot/dev` 的 `workspace-coding/SOUL.md` 新增 message 工具发群约定、`/app-bot` 工作目录约定、`bot/dev` 分支与 git 安全规范；`TOOLS.md` 明确开放 `exec` 但仅允许在 `/app-bot` 下执行，禁止破坏性 git 命令。
+- **本地冒烟通过**：`docker compose config` 与 `.openclaw/config` JSON 校验通过；容器重建后 `/app-bot/.openclaw/workspace-coding` 存在；容器内执行 `openclaw agent --agent coding` 的 `systemPromptReport.workspaceDir` 已显示 `/app-bot/.openclaw/workspace-coding`。飞书群真实收发仍待用户在“技术大神”群发一条消息做最终验收。
